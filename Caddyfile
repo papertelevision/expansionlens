@@ -1,49 +1,26 @@
-# Caddy reverse proxy for ExpansionLens production.
-# Auto-provisions and renews Let's Encrypt certs for both hostnames.
-# Just point DNS A records at the Droplet IP and Caddy handles the rest.
+# STAGING: IP-only HTTP Caddyfile for initial droplet bring-up.
+#
+# This variant serves any hostname over HTTP:80 so the site can be
+# reached at http://<droplet-ip>/ before DNS for expansionlens.com has
+# been cut over to the droplet. Bot filtering is intentionally omitted
+# so smoke-test tools (curl, wget) work without extra flags.
+#
+# GOING LIVE:
+#   Once DNS A records for expansionlens.com and www.expansionlens.com
+#   point at the droplet, swap in the real production config and
+#   redeploy so Caddy can provision Let's Encrypt TLS certificates:
+#
+#     cp Caddyfile.production Caddyfile
+#     docker compose -f docker-compose.prod.yml up -d
+#
+#   Caddy will pick up the new config on restart and obtain certs within
+#   ~30 seconds of boot.
 
-{
-	# Use the production ACME endpoint. Override with CADDY_ACME_CA env if you
-	# need staging certs while testing (e.g. https://acme-staging-v02.api.letsencrypt.org/directory).
-	email admin@expansionlens.com
-}
-
-# Redirect www → apex
-www.expansionlens.com {
-	redir https://expansionlens.com{uri} permanent
-}
-
-expansionlens.com {
+:80 {
 	encode zstd gzip
 
-	# ─── Bot / scraper blocking ─────────────────────────────────────────────
-	# Block known automation and scraping user agents. We don't try to be
-	# exhaustive — just shut down the laziest 80% of casual scraping. Real
-	# search crawlers (Googlebot, Bingbot, Applebot, DuckDuckBot, AhrefsBot)
-	# are NOT in this list and will be allowed through.
-	@bots {
-		header_regexp User-Agent (?i)(curl|wget|python-requests|python-urllib|httpx|aiohttp|scrapy|node-fetch|got/|axios/|libwww|mechanize|httpclient|java/|okhttp|apache-httpclient|go-http-client|rest-client)
-	}
-	respond @bots "Not found" 404 {
-		close
-	}
-
-	@headless {
-		header_regexp User-Agent (?i)(headlesschrome|puppeteer|playwright|selenium|phantomjs|nightmare|webdriver)
-	}
-	respond @headless "Not found" 404 {
-		close
-	}
-
-	@empty_ua {
-		not header User-Agent *
-	}
-	respond @empty_ua "Not found" 404 {
-		close
-	}
-
-	# Forward client IP and protocol so the app's rate limiter and cookie-secure
-	# logic see the real values.
+	# Forward client IP and protocol so the app's rate limiter and
+	# cookie-secure logic see the real values.
 	reverse_proxy web:3000 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}

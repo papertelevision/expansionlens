@@ -146,7 +146,7 @@ aws --version
 sudo mkdir -p /opt/expansionlens
 sudo chown deploy:deploy /opt/expansionlens
 cd /opt/expansionlens
-git clone https://github.com/<your-org>/expansioniq.git .
+git clone https://github.com/papertelevision/expansionlens.git .
 ```
 
 ## 6. Create the DO Spaces bucket for backups
