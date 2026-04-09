@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Globe</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+  #globe-wrap {
+    width: 100%; height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="globe-wrap"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const GLOBE_RADIUS = 1.0;
+const DOT_COLOR = new THREE.Color(1, 1, 1);
+const DOT_SIZE = 0.006;
+const DOT_OPACITY = 1.0;
+const ROTATION_SPEED = 0.0156;
+
+function lonLatToVec3(lon, lat, r) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return new THREE.Vector3(
+    -r * Math.sin(phi) * Math.cos(theta),
+     r * Math.cos(phi),
+     r * Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+function makeGlowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const center = size / 2;
+  const grad = ctx.createRadialGradient(center, center, 0, center, center, center);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.8, 'rgba(255,255,255,0.4)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvas);
+}
+
+// Scene setup
+const wrap = document.getElementById('globe-wrap');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
+camera.position.set(0, 0, 3);
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false, powerPreference: 'low-power' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+wrap.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.enableZoom = false;
+controls.rotateSpeed = 0.5;
+
+const globeGroup = new THREE.Group();
+scene.add(globeGroup);
+
+// Load pre-computed land dots
+fetch('/globe/land_dots.json')
+  .then(r => r.json())
+  .then(landDots => {
+    const positions = new Float32Array(landDots.length * 3);
+    for (let i = 0; i < landDots.length; i++) {
+      const v = lonLatToVec3(landDots[i][0], landDots[i][1], GLOBE_RADIUS);
+      positions[i * 3] = v.x;
+      positions[i * 3 + 1] = v.y;
+      positions[i * 3 + 2] = v.z;
+    }
+
+    const dotGeom = new THREE.BufferGeometry();
+    dotGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const glowTex = makeGlowTexture();
+    const dotMat = new THREE.PointsMaterial({
+      color: DOT_COLOR,
+      size: DOT_SIZE,
+      map: glowTex,
+      transparent: true,
+      opacity: DOT_OPACITY,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    const camPos = camera.position;
+    dotMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uCamPos = { value: camPos };
+      shader.vertexShader = shader.vertexShader.replace(
+        'void main() {',
+        'uniform vec3 uCamPos;\nvarying float vFacing;\nvoid main() {'
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <clipping_planes_vertex>',
+        `#include <clipping_planes_vertex>
+vec4 worldPos = modelMatrix * vec4(position, 1.0);
+float rawFacing = dot(normalize(worldPos.xyz), normalize(uCamPos));
+vFacing = clamp((rawFacing + 1.0) * 0.5, 0.0, 1.0);`
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'void main() {',
+        'varying float vFacing;\nvoid main() {'
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <premultiplied_alpha_fragment>',
+        `float facingAlpha = mix(0.0, 1.0, pow(vFacing, 0.8));
+gl_FragColor.a *= facingAlpha;
+#include <premultiplied_alpha_fragment>`
+      );
+    };
+    globeGroup.add(new THREE.Points(dotGeom, dotMat));
+
+    // Subtle outline ring
+    const ringGeom = new THREE.RingGeometry(GLOBE_RADIUS - 0.002, GLOBE_RADIUS + 0.002, 128);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x334455, transparent: true, opacity: 0.12, side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    globeGroup.add(ring);
+
+    globeGroup.rotation.x = 0.15;
+  });
+
+// Animation
+const clock = new THREE.Clock();
+let isVisible = true;
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!isVisible) return;
+  const delta = clock.getDelta();
+  globeGroup.rotation.y += ROTATION_SPEED * delta;
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// Pause when off-screen
+const observer = new IntersectionObserver(([entry]) => {
+  isVisible = entry.isIntersecting;
+  if (isVisible) clock.getDelta();
+}, { threshold: 0.1 });
+observer.observe(wrap);
+
+document.addEventListener('visibilitychange', () => {
+  isVisible = !document.hidden;
+  if (isVisible) clock.getDelta();
+});
+
+// Resize
+window.addEventListener('resize', () => {
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+</script>
+</body>
+</html>

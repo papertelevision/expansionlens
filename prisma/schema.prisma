@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  isAdmin       Boolean     @default(false)
+  adminPassword String?
+  createdAt     DateTime    @default(now())
+  reports    Report[]
+  sessions   Session[]
+  magicLinks MagicLink[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model MagicLink {
+  id              String   @id @default(cuid())
+  email           String
+  token           String   @unique
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+  expiresAt       DateTime
+  used            Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  pendingAddress  String?
+  pendingIndustry String?
+  pendingLat      String?
+  pendingLon      String?
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  event     String   // e.g. 'page_view', 'report_generated', 'unlock_clicked', 'payment_completed'
+  page      String?
+  industry  String?
+  address   String?
+  userId    String?
+  meta      String?  // JSON string for extra data
+  createdAt DateTime @default(now())
+}
+
+model Report {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  address         String
+  industry        String
+  lat             Float
+  lon             Float
+  reportData      String   // JSON string of full API response
+  stripeSessionId String?
+  createdAt       DateTime @default(now())
+}

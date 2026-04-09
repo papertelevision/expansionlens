@@ -1,0 +1,10 @@
+FROM node:20-slim
+
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    curl git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+EXPOSE 3000
+
+CMD ["sh", "-c", "npm install && npm run dev"]

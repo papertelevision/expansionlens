@@ -1,0 +1,41 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: sh -c "npm install && npx prisma generate && npx prisma db push --skip-generate && npm run dev"
+    ports:
+      - "3003:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - ~/.config/gh:/root/.config/gh:ro
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: expansionlens
+      POSTGRES_PASSWORD: expansionlens_dev
+      POSTGRES_DB: expansionlens
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expansionlens"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  node_modules:
+  pgdata:

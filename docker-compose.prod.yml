@@ -1,0 +1,70 @@
+# Production stack for the DigitalOcean Droplet.
+# Three services: Caddy (TLS termination) → web (Next.js standalone) → postgres.
+#
+# Deploy: docker compose -f docker-compose.prod.yml up -d --build
+# Logs:   docker compose -f docker-compose.prod.yml logs -f web
+# Stop:   docker compose -f docker-compose.prod.yml down
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: expansionlens-web:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://expansionlens:${POSTGRES_PASSWORD}@postgres:5432/expansionlens"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    expose:
+      - "3000"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: expansionlens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: expansionlens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expansionlens"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      - web
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

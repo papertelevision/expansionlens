@@ -1,0 +1,31 @@
+{
+  "name": "expansion-iq",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@sentry/nextjs": "^10.47.0",
+    "@turf/centroid": "^7.0.0",
+    "@turf/destination": "^7.0.0",
+    "@turf/distance": "^7.0.0",
+    "@turf/square-grid": "^7.0.0",
+    "bcryptjs": "^3.0.3",
+    "html2pdf.js": "^0.14.0",
+    "leaflet": "^1.9.4",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-leaflet": "^4.2.1",
+    "resend": "^6.10.0",
+    "server-only": "^0.0.1",
+    "stripe": "^21.0.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}
