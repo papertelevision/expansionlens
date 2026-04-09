@@ -48,10 +48,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Prisma needs its schema + migrations and generated client at runtime.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Copy the entire @prisma/ scope so @prisma/engines can resolve its
+# transitive deps (@prisma/debug, @prisma/fetch-engine, @prisma/get-platform)
+# when `prisma migrate deploy` runs at container start. Cherry-picking
+# individual @prisma/* packages breaks on those transitive requires.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 # The Prisma CLI is needed to run `prisma migrate deploy` at container start.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 
 USER nextjs
 
