@@ -29,6 +29,12 @@ RUN npm run build
 
 # ─── Stage 3: runtime image ──────────────────────────────────────────────────
 FROM node:20-alpine AS runner
+# Prisma's query engine dynamically links libssl at runtime. Without the
+# openssl package (and libc6-compat for glibc shims), the engine fails to
+# load on Alpine 3.19+ with the opaque error "Could not parse schema engine
+# response: SyntaxError: Unexpected token 'E'..." — which is really Prisma
+# trying to JSON.parse a dynamic-linker error message.
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 ENV NODE_ENV=production
