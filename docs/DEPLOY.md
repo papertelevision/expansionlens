@@ -386,6 +386,129 @@ with search engines so the SEO/AEO work starts getting indexed.
 
 ---
 
+## Going live: accepting real payments
+
+Once the site is deployed, SSL is working, and smoke tests pass on test
+mode, follow these steps to start accepting real money.
+
+### 1. Switch Stripe to live mode
+
+**In the Stripe dashboard:**
+
+1. Toggle to **Live mode** (top-left switch)
+2. **Developers → API keys** → copy the live secret key (`sk_live_...`)
+3. **Developers → Webhooks → Add endpoint**
+   - **Endpoint URL:** `https://expansionlens.com/api/webhooks/stripe`
+   - **Events to listen for:**
+     - `checkout.session.completed`
+     - `checkout.session.async_payment_succeeded`
+     - `checkout.session.async_payment_failed`
+4. Copy the **Signing secret** (`whsec_...`)
+
+**On the droplet:**
+
+```bash
+cd /opt/expansionlens
+nano .env
+```
+
+Update these values:
+
+```
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+If you created a separate live-mode product in Stripe, update
+`STRIPE_PRODUCT_ID` too. Otherwise leave it — the app falls back to
+inline product data.
+
+```bash
+docker compose -f docker-compose.prod.yml restart web
+```
+
+Restart is near-instant — no rebuild needed for env-only changes.
+
+### 2. Verify your domain in Resend and set EMAIL_FROM
+
+Without this, magic-link emails either come from the Resend sandbox
+sender (looks unprofessional and may be flagged as spam) or fail
+silently in some email clients.
+
+1. **Resend dashboard → Domains → Add Domain** → `expansionlens.com`
+2. Resend shows DNS records to add (DKIM, SPF, DMARC). Add all of them
+   at your DNS registrar (Bluehost) alongside the existing A records.
+3. Wait for Resend to show **Verified** (usually 5–15 minutes).
+4. On the droplet, update `.env`:
+   ```
+   EMAIL_FROM=ExpansionLens <noreply@expansionlens.com>
+   ```
+5. `docker compose -f docker-compose.prod.yml restart web`
+
+### 3. Test the full purchase funnel with a real card
+
+Walk through the entire flow yourself before telling anyone the site
+is live:
+
+1. `https://expansionlens.com/` → enter a real U.S. address, select
+   Dental
+2. Free preview loads with score + gated sections
+3. Click "Get Full Report" → enter your real email
+4. Receive the magic-link email within 30 seconds (check spam if it
+   doesn't arrive — that usually means the Resend domain isn't verified)
+5. Click the magic link → return to report page, authenticated
+6. Click "Get Full Report — $149" → redirect to Stripe Checkout
+7. Pay with a real card (you can refund yourself from the Stripe
+   dashboard immediately after)
+8. Report unlocks automatically → verify all dental sections render:
+   - Provider Landscape (real NPI counts by specialty)
+   - Payer Mix (real Census percentages + state Medicaid tier)
+   - Daytime Workforce (real county employment data)
+9. `https://expansionlens.com/account` → purchased report appears in
+   history
+10. `https://expansionlens.com/admin` → new user + report visible in
+    the dashboard, revenue counter incremented
+
+If any step fails, check the web container logs:
+
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=50 web
+```
+
+### 4. Set up Sentry error tracking (optional but recommended)
+
+The Sentry integration is already wired into the codebase
+(`sentry.client.config.js`, `sentry.server.config.js`,
+`sentry.edge.config.js`) — it just needs the env vars to activate.
+
+1. Create a Sentry project of type "Next.js"
+2. Copy the DSN (starts with `https://...@o...ingest.sentry.io/...`)
+3. Under **Settings → Auth Tokens**, create a token with
+   `project:releases` and `org:read` scopes (enables source map upload
+   during build)
+4. Add to `.env`:
+   ```
+   SENTRY_DSN=https://...@o...ingest.sentry.io/...
+   NEXT_PUBLIC_SENTRY_DSN=https://...@o...ingest.sentry.io/...
+   SENTRY_AUTH_TOKEN=sntrys_...
+   SENTRY_ORG=your-org
+   SENTRY_PROJECT=expansionlens
+   ```
+5. **Rebuild required** (source maps are uploaded at build time):
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build web
+   ```
+
+### Go-live summary
+
+| Change | Command |
+|---|---|
+| Env-only updates (Stripe keys, EMAIL_FROM, etc.) | `restart web` |
+| Sentry setup (needs source map upload) | `up -d --build web` |
+| Caddyfile changes (TLS, bot filtering) | `restart caddy` |
+
+---
+
 ## Deployment workflow (subsequent updates)
 
 ```bash
@@ -492,12 +615,37 @@ per-15-minutes per-IP rate limit. If you lock yourself out:
   docker compose -f docker-compose.prod.yml restart web
   ```
 
-**Resetting an admin password.** Same as initial setup:
-```bash
-docker compose -f docker-compose.prod.yml exec web \
-  node scripts/set-admin-password.js you@example.com 'new-password'
-```
-The script upserts — safe to re-run on an existing account.
+**Resetting an admin password.** The standalone Next.js image inlines
+`bcryptjs` via webpack, so `scripts/set-admin-password.js` can't run
+directly inside the container. Use this two-step approach instead:
+
+1. **On your local machine** (where `node_modules/bcryptjs` exists),
+   generate the hash and write it into a temp script:
+   ```bash
+   cd /path/to/expansionlens
+   HASH=$(node -e "console.log(require('bcryptjs').hashSync('new-password', 12))")
+   cat > /tmp/fix-admin.js <<SCRIPT
+   const { PrismaClient } = require("@prisma/client");
+   const p = new PrismaClient();
+   p.user.upsert({
+     where: { email: "admin@example.com" },
+     create: { email: "admin@example.com", isAdmin: true, adminPassword: "${HASH}" },
+     update: { isAdmin: true, adminPassword: "${HASH}" },
+   }).then(u => { console.log("Admin set:", u.email); return p.\$disconnect(); })
+     .catch(e => { console.error(e); process.exit(1); });
+   SCRIPT
+   scp /tmp/fix-admin.js deploy@138.197.111.172:/tmp/fix-admin.js
+   ```
+
+2. **On the droplet**, copy the script into the container and run it:
+   ```bash
+   docker compose -f docker-compose.prod.yml cp /tmp/fix-admin.js web:/app/fix-admin.js
+   docker compose -f docker-compose.prod.yml exec web node fix-admin.js
+   rm /tmp/fix-admin.js
+   ```
+
+The upsert is safe to re-run — it creates the user if they don't exist
+or updates the password if they do.
 
 ---
 
