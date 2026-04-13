@@ -50,6 +50,8 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Admin scripts (set-admin-password.js, etc.) for runtime use via docker exec.
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
 # Prisma needs its schema + migrations and generated client at runtime.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
