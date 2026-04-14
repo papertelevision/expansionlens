@@ -485,8 +485,8 @@ export default function Home() {
           }
         });
     } else if (!urlAddress && !sessionId && !reportId && !result) {
-      // No valid parameters — redirect to homepage
-      window.location.href = '/';
+      // No valid parameters — redirect to sample report
+      window.location.href = '/sample';
       return;
     } else if (urlAddress && !result) {
       // Fresh analysis from home page
