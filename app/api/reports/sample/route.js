@@ -9,6 +9,7 @@ export async function GET() {
       lon: -97.7431,
       score: 74,
       competitorCount: 22,
+      searchRadius: { radiusMiles: 2.5, radiusMeters: 4023, searchAreaSqMi: 25, densityTier: 'urban' },
       scoreBreakdown: [
         { label: 'Population', percent: 70 },
         { label: 'Income', percent: 70 },
@@ -112,7 +113,7 @@ export async function GET() {
       risks: [
         {
           text: 'Above-average competition density',
-          detail: '22 existing practices within the 3-mile radius reflect a market that already serves both residents and the daytime workforce. Expect a longer ramp.',
+          detail: '22 existing practices within the 2.5-mile radius reflect a market that already serves both residents and the daytime workforce. Expect a longer ramp.',
         },
         {
           text: 'Income skews lower for premium cosmetic procedures',

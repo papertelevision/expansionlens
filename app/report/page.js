@@ -804,7 +804,7 @@ export default function Home() {
               <div className={`score-label ${getScoreTier(result.score)}`}>
                 {getScoreLabel(result.score)}
               </div>
-              <div className="address" style={{ fontStyle: 'italic' }}>Based on demographic demand and competitive density within a 3.5-mile radius</div>
+              <div className="address" style={{ fontStyle: 'italic' }}>Based on demographic demand and competitive density within a {result.searchRadius?.radiusMiles || 3.5}-mile radius</div>
             </div>
 
             {/* Score Breakdown */}
@@ -928,6 +928,7 @@ export default function Home() {
                 population={result.population}
                 medianIncome={result.medianIncome}
                 industry={industry}
+                searchRadius={result.searchRadius}
               />
             </div>
           </div>

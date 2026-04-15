@@ -21,7 +21,7 @@ function getGridCellColor(score) {
   return '#ef4444'; // red
 }
 
-export default function Map({ lat, lon, competitors, population, medianIncome, industry = 'dental' }) {
+export default function Map({ lat, lon, competitors, population, medianIncome, industry = 'dental', searchRadius }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
@@ -90,10 +90,10 @@ export default function Map({ lat, lon, competitors, population, medianIncome, i
         .bindPopup(`<div style="min-width:180px"><b style="font-size:13px">${comp.name}</b>${ratingLine}${addressLine}${phoneLine}${distLine}</div>`);
     });
 
-    // Turf.js grid overlay — 5mi x 5mi square (2.5mi in each direction)
+    // Turf.js grid overlay — adaptive size based on search radius
     // Build grid in degrees so cells render as visual squares on the Mercator map
     const center = [lon, lat];
-    const halfSideMiles = 2.5;
+    const halfSideMiles = searchRadius?.radiusMiles || 2.5;
     const gridCount = 10; // 10x10 grid
 
     // Calculate bbox using destination points for accurate mile-to-degree conversion
@@ -157,10 +157,10 @@ export default function Map({ lat, lon, competitors, population, medianIncome, i
       compDistances.sort((a, b) => a.distance - b.distance);
 
       const minDist = compDistances.length > 0 ? compDistances[0].distance : Infinity;
-      const nearbyComps = compDistances.filter((c) => c.distance <= 2.5);
+      const nearbyComps = compDistances.filter((c) => c.distance <= halfSideMiles);
 
       // If no competitors, max score
-      const compFactor = competitors.length === 0 ? 1 : Math.min(1, minDist / 1.5);
+      const compFactor = competitors.length === 0 ? 1 : Math.min(1, minDist / (halfSideMiles * 0.6));
 
       // Combined cell score
       const cellScore = compFactor * demoBaseline;
@@ -192,7 +192,7 @@ export default function Map({ lat, lon, competitors, population, medianIncome, i
 
       if (minDist < 0.5 && competitors.length > 0) {
         tooltipHtml += `<div style="font-size:11px;color:#ef4444;margin-top:4px">⚠ Very close to competitor(s)</div>`;
-      } else if (minDist >= 1.5 || competitors.length === 0) {
+      } else if (minDist >= (halfSideMiles * 0.6) || competitors.length === 0) {
         tooltipHtml += `<div style="font-size:11px;color:#10b981;margin-top:4px">✓ Good distance from competitors</div>`;
       }
 

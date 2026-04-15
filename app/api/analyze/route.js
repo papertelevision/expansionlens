@@ -11,6 +11,7 @@ import { getInsuranceCoverage } from '../../../lib/payer-mix.js';
 import { getStateMedicaidDental } from '../../../lib/state-dental-medicaid.js';
 import { getCountyWorkforce } from '../../../lib/lehd-workforce.js';
 import { checkRateLimit } from '../../../lib/rate-limit.js';
+import { determineSearchRadius } from '../../../lib/search-radius.js';
 
 function getClientIp(request) {
   const fwd = request.headers.get('x-forwarded-for');
@@ -258,11 +259,39 @@ export async function GET(request) {
     const cLat = lat.toFixed(3);
     const cLon = lon.toFixed(3);
 
-    // Step 2: Build Overpass queries dynamically from industry config
+    // Step 2: Get Census FIPS + demographics first (needed to determine
+    // adaptive search radius before building Overpass queries).
+    const walkScorePromise = getWalkScore(displayAddress, lat, lon);
+
+    const defaults = {
+      population: 3000, medianIncome: 55000, medianAge: null,
+      collegePercent: null, employmentRate: null, medianHomeValue: null,
+      vacancyRate: null, drivePercent: null,
+    };
+    let demographics = { ...defaults };
+    let fips = null;
+
+    try {
+      fips = await getFipsCodes(lat, lon);
+      if (fips) {
+        const demo = await getDemographics(fips.state, fips.county, fips.tract);
+        for (const key of Object.keys(defaults)) {
+          if (demo[key] !== null && demo[key] !== undefined) demographics[key] = demo[key];
+        }
+      }
+    } catch (e) {
+      console.warn('Census lookup failed, using defaults:', e.message);
+    }
+
+    // Step 2.5: Determine search radius from tract population density
+    const searchRadius = determineSearchRadius(demographics.population !== defaults.population ? demographics.population : null);
+    const { radiusMeters } = searchRadius;
+
+    // Step 3: Build Overpass queries with adaptive radius
     const competitorClauses = config.overpassAmenities
       .map((a) => {
         const key = getTagType(a);
-        return `node["${key}"="${a}"](around:5633,${lat},${lon});way["${key}"="${a}"](around:5633,${lat},${lon});relation["${key}"="${a}"](around:5633,${lat},${lon});`;
+        return `node["${key}"="${a}"](around:${radiusMeters},${lat},${lon});way["${key}"="${a}"](around:${radiusMeters},${lat},${lon});relation["${key}"="${a}"](around:${radiusMeters},${lat},${lon});`;
       })
       .join('');
     const competitorQuery = `[out:json][timeout:25];(${competitorClauses});out center;`;
@@ -271,55 +300,31 @@ export async function GET(request) {
       .flatMap((category) =>
         category.tags.map((tag) => {
           const key = getTagType(tag);
-          // bus_stop only needs node queries
           if (key === 'highway') {
-            return `node["${key}"="${tag}"](around:5633,${lat},${lon});`;
+            return `node["${key}"="${tag}"](around:${radiusMeters},${lat},${lon});`;
           }
-          return `node["${key}"="${tag}"](around:5633,${lat},${lon});way["${key}"="${tag}"](around:5633,${lat},${lon});`;
+          return `node["${key}"="${tag}"](around:${radiusMeters},${lat},${lon});way["${key}"="${tag}"](around:${radiusMeters},${lat},${lon});`;
         })
       )
       .join('\n      ');
     const poiQuery = `[out:json][timeout:25];(\n      ${poiClauses}\n    );out center;`;
 
-    // Step 3: Run Census + Walk Score in parallel with Overpass (staggered)
-    const fipsPromise = getFipsCodes(lat, lon);
-    const walkScorePromise = getWalkScore(displayAddress, lat, lon);
+    // Step 4: Run Overpass + PopGrowth in parallel (Census already done)
+    const popGrowthPromise = fips ? getPopulationGrowth(fips.state, fips.county) : Promise.resolve(null);
 
-    // Run competitor query first, then POI query (staggered to avoid rate limits)
-    const competitorData = await queryOverpassWithRetry(competitorQuery, `comp:${industry}:${cLat},${cLon}`);
-    await sleep(500); // brief pause between Overpass calls
-    const poiData = await queryOverpassWithRetry(poiQuery, `poi:${industry}:${cLat},${cLon}`);
+    const competitorData = await queryOverpassWithRetry(competitorQuery, `comp:${industry}:${cLat},${cLon}:${radiusMeters}`);
+    await sleep(500);
+    const poiData = await queryOverpassWithRetry(poiQuery, `poi:${industry}:${cLat},${cLon}:${radiusMeters}`);
 
-    // Await Census + Walk Score (likely already done by now)
-    const [fips, walkScoreData] = await Promise.all([fipsPromise, walkScorePromise]);
+    const [popGrowth, walkScoreData] = await Promise.all([popGrowthPromise, walkScorePromise]);
 
     // Parse results
     const rawCompetitors = parseCompetitors(competitorData, config);
     const anchors = parseAnchors(poiData, config);
 
-    // Step 4: Enrich competitors with Google Places data (ratings, reviews)
+    // Step 5: Enrich competitors with Google Places data (ratings, reviews)
     const { competitors, avgRating: avgCompetitorRating, totalReviews: totalCompetitorReviews } =
-      await enrichCompetitors(rawCompetitors, lat, lon, config.googlePlacesType, config.fallbackName);
-
-    // Step 5: Fetch demographics + population growth
-    const defaults = {
-      population: 3000, medianIncome: 55000, medianAge: null,
-      collegePercent: null, employmentRate: null, medianHomeValue: null,
-      vacancyRate: null, drivePercent: null,
-    };
-    let demographics = { ...defaults };
-    let popGrowth = null;
-
-    if (fips) {
-      const [demo, growth] = await Promise.all([
-        getDemographics(fips.state, fips.county, fips.tract),
-        getPopulationGrowth(fips.state, fips.county),
-      ]);
-      for (const key of Object.keys(defaults)) {
-        if (demo[key] !== null && demo[key] !== undefined) demographics[key] = demo[key];
-      }
-      popGrowth = growth;
-    }
+      await enrichCompetitors(rawCompetitors, lat, lon, config.googlePlacesType, config.fallbackName, radiusMeters);
 
     // Step 6: Calculate score
     const competitorCount = competitors.length;
@@ -333,6 +338,7 @@ export async function GET(request) {
       popGrowth,
       avgCompetitorRating,
       config,
+      searchRadius,
     });
 
     // Step 7: Generate summary and recommendation
@@ -450,6 +456,7 @@ export async function GET(request) {
       walkScore: walkScoreData,
       anchors,
       npiData,
+      searchRadius,
     };
     const { upside, risks } = evaluateUpsideRisks(resultData, config);
     const winStrategy = deriveWinStrategy(resultData, config);
@@ -471,6 +478,12 @@ export async function GET(request) {
       anchors,
       score,
       scoreBreakdown,
+      searchRadius: {
+        radiusMiles: searchRadius.radiusMiles,
+        radiusMeters: searchRadius.radiusMeters,
+        searchAreaSqMi: searchRadius.searchAreaSqMi,
+        densityTier: searchRadius.densityTier,
+      },
       upside,
       risks,
       winStrategy,
