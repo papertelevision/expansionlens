@@ -3,8 +3,9 @@ import { withSentryConfig } from '@sentry/nextjs';
 const securityHeaders = [
   // Force HTTPS for two years, include subdomains, and allow preload list submission.
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-  // Disallow framing — defends against clickjacking.
-  { key: 'X-Frame-Options', value: 'DENY' },
+  // Allow same-origin framing (needed for the globe iframe on the landing
+  // page) but block external sites from framing us (clickjacking defense).
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   // Disable MIME sniffing.
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   // Send the origin (not the full URL) on cross-origin navigations.
