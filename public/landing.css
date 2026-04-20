@@ -975,13 +975,8 @@ ul { list-style: none; }
   width: 48px;
   height: 48px;
   margin: 0 auto 1rem;
-  color: var(--primary);
-}
-
-.coming-soon .vertical-icon {
   color: var(--text-muted);
 }
-
 .vertical-name {
   font-family: var(--font-serif);
   font-size: 1.15rem;

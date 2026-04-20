@@ -278,6 +278,7 @@ export default function Home() {
   const [authStep, setAuthStep] = useState('email'); // 'email' | 'sent'
   const [authLoading, setAuthLoading] = useState(false);
   const loadingTimers = useRef([]);
+  const routeInitRef = useRef(false);
 
   const config = industryDisplay[industry];
 
@@ -383,7 +384,12 @@ export default function Home() {
   }, []);
 
   // Handle redirects: payment success, post-auth checkout, or saved report load
+  // Guard ref prevents React StrictMode double-mount from re-firing this logic
+  // after replaceState has already stripped the URL params.
   useEffect(() => {
+    if (routeInitRef.current) return;
+    routeInitRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get('session_id');
     const urlAddress = params.get('address');
@@ -407,9 +413,9 @@ export default function Home() {
             setViewingSaved(true);
             if (isSampleReport) setIsSample(true);
           }
+          window.history.replaceState({}, '', window.location.pathname);
         })
         .catch(() => {});
-      window.history.replaceState({}, '', window.location.pathname);
       return;
     }
 
@@ -499,13 +505,13 @@ export default function Home() {
         .then((data) => {
           if (data && !data.error) {
             pendingResultRef.current = { data, address: urlAddress, industry: ind };
+            window.history.replaceState({}, '', window.location.pathname);
           } else {
             setError(data?.error || 'Analysis failed');
             setLoading(false);
           }
         })
         .catch(() => { setError('Failed to connect. Please try again.'); setLoading(false); });
-      window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
@@ -1124,13 +1130,13 @@ export default function Home() {
                 <div className="workforce-insight">
                   <strong>Insight:</strong>{' '}
                   Federal LEHD data shows {wf.totalJobs.toLocaleString()} jobs in this county across {top.length} major industries.{' '}
-                  {marketType === 'commuter' && (
+                  {ratio != null && marketType === 'commuter' && (
                     <>The worker-to-resident ratio of <strong>{ratio.toFixed(2)}&times;</strong> means more people work here than live here &mdash; this is a job-importing market that pulls commuters from neighboring counties. A dental practice targeting downtown professionals with extended weekday hours and lunch-hour appointment slots can capture this daytime workforce on top of the residential patient base. </>
                   )}
-                  {marketType === 'residential' && (
+                  {ratio != null && marketType === 'residential' && (
                     <>The worker-to-resident ratio of <strong>{ratio.toFixed(2)}&times;</strong> indicates a residential / bedroom-community market &mdash; most patients will be local residents, not workday commuters. A family practice with evening and weekend hours will outperform a downtown professional model here. </>
                   )}
-                  {marketType === 'mixed' && (
+                  {ratio != null && marketType === 'mixed' && (
                     <>The worker-to-resident ratio of <strong>{ratio.toFixed(2)}&times;</strong> suggests a balanced market that supports both residential and workday-focused practice models. </>
                   )}
                   {topInd && topInd.code === '54' && (

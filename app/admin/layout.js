@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: '📊' },
@@ -102,14 +103,14 @@ export default function AdminLayout({ children }) {
         <div className="admin-sidebar-label">Admin</div>
         <nav className="admin-nav">
           {navItems.map((item) => (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className={`admin-nav-link${pathname === item.href ? ' active' : ''}`}
             >
               <span className="admin-nav-icon">{item.icon}</span>
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="admin-sidebar-footer">

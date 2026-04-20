@@ -616,7 +616,7 @@ export default function Home() {
               <div className={`score-label ${getScoreTier(result.score)}`}>
                 {getScoreLabel(result.score)}
               </div>
-              <div className="address" style={{ fontStyle: 'italic' }}>Based on demographic demand and competitive density within a 3.5-mile radius</div>
+              <div className="address" style={{ fontStyle: 'italic' }}>Based on demographic demand and competitive density within a {result.searchRadius?.radiusMiles || 3.5}-mile radius</div>
             </div>
 
             {/* Score Breakdown */}
@@ -720,6 +720,7 @@ export default function Home() {
                 population={result.population}
                 medianIncome={result.medianIncome}
                 industry={industry}
+                searchRadius={result.searchRadius}
               />
             </div>
           </div>
@@ -909,13 +910,13 @@ export default function Home() {
                 <div className="workforce-insight">
                   <strong>Insight:</strong>{' '}
                   Federal LEHD data shows {wf.totalJobs.toLocaleString()} jobs in this county across {top.length} major industries.{' '}
-                  {marketType === 'commuter' && (
+                  {ratio != null && marketType === 'commuter' && (
                     <>The worker-to-resident ratio of <strong>{ratio.toFixed(2)}&times;</strong> means more people work here than live here &mdash; this is a job-importing market. A practice targeting downtown professionals will capture this daytime workforce on top of residents. </>
                   )}
-                  {marketType === 'residential' && (
+                  {ratio != null && marketType === 'residential' && (
                     <>The worker-to-resident ratio of <strong>{ratio.toFixed(2)}&times;</strong> indicates a residential market &mdash; most patients will be local residents, not workday commuters. </>
                   )}
-                  {marketType === 'mixed' && (
+                  {ratio != null && marketType === 'mixed' && (
                     <>The worker-to-resident ratio of <strong>{ratio.toFixed(2)}&times;</strong> suggests a balanced market. </>
                   )}
                   {topInd && topInd.code === '54' && (

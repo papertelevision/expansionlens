@@ -11,7 +11,7 @@ import { getInsuranceCoverage } from '../../../lib/payer-mix.js';
 import { getStateMedicaidDental } from '../../../lib/state-dental-medicaid.js';
 import { getCountyWorkforce } from '../../../lib/lehd-workforce.js';
 import { checkRateLimit } from '../../../lib/rate-limit.js';
-import { determineSearchRadius } from '../../../lib/search-radius.js';
+import { getMaxSearchRadius, pickRadiusFromCompetitors } from '../../../lib/search-radius.js';
 
 function getClientIp(request) {
   const fwd = request.headers.get('x-forwarded-for');
@@ -50,6 +50,18 @@ function setCache(key, data) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.8;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 async function queryOverpassOnce(query, endpoints) {
@@ -171,17 +183,28 @@ function parseCompetitors(data, config) {
   }).filter((c) => c.lat && c.lon);
 }
 
-function parseAnchors(data, config) {
+function parseAnchors(data, config, centerLat, centerLon, radiusMiles) {
   const anchors = {};
   for (const [label, category] of Object.entries(config.poiCategories)) {
     const tags = category.tags;
-    const items = (data.elements || []).filter((el) => {
+    let items = (data.elements || []).filter((el) => {
       const amenity = el.tags?.amenity || '';
       const shop = el.tags?.shop || '';
       const highway = el.tags?.highway || '';
       const tourism = el.tags?.tourism || '';
       return tags.includes(amenity) || tags.includes(shop) || tags.includes(highway) || tags.includes(tourism);
     });
+    // Filter to within radius if a radius was provided. Each item must have
+    // coordinates; without them we can't measure distance, so keep them only
+    // when no radius constraint is given.
+    if (radiusMiles != null && centerLat != null && centerLon != null) {
+      items = items.filter((el) => {
+        const elLat = el.lat || el.center?.lat;
+        const elLon = el.lon || el.center?.lon;
+        if (elLat == null || elLon == null) return false;
+        return haversineMiles(centerLat, centerLon, elLat, elLon) <= radiusMiles;
+      });
+    }
     anchors[label] = {
       count: items.length,
       items: items.slice(0, 5).map((el) => ({
@@ -259,39 +282,17 @@ export async function GET(request) {
     const cLat = lat.toFixed(3);
     const cLon = lon.toFixed(3);
 
-    // Step 2: Get Census FIPS + demographics first (needed to determine
-    // adaptive search radius before building Overpass queries).
-    const walkScorePromise = getWalkScore(displayAddress, lat, lon);
+    // Step 2: Always query at the maximum radius (5 mi). We'll pick the
+    // actual analysis radius based on observed competitor density, then
+    // filter the results down. This handles dense commercial cores like
+    // Midtown Manhattan correctly — those have very few residents but very
+    // high competitor density, which residential population can't capture.
+    const { radiusMeters: maxRadiusMeters } = getMaxSearchRadius();
 
-    const defaults = {
-      population: 3000, medianIncome: 55000, medianAge: null,
-      collegePercent: null, employmentRate: null, medianHomeValue: null,
-      vacancyRate: null, drivePercent: null,
-    };
-    let demographics = { ...defaults };
-    let fips = null;
-
-    try {
-      fips = await getFipsCodes(lat, lon);
-      if (fips) {
-        const demo = await getDemographics(fips.state, fips.county, fips.tract);
-        for (const key of Object.keys(defaults)) {
-          if (demo[key] !== null && demo[key] !== undefined) demographics[key] = demo[key];
-        }
-      }
-    } catch (e) {
-      console.warn('Census lookup failed, using defaults:', e.message);
-    }
-
-    // Step 2.5: Determine search radius from tract population density
-    const searchRadius = determineSearchRadius(demographics.population !== defaults.population ? demographics.population : null);
-    const { radiusMeters } = searchRadius;
-
-    // Step 3: Build Overpass queries with adaptive radius
     const competitorClauses = config.overpassAmenities
       .map((a) => {
         const key = getTagType(a);
-        return `node["${key}"="${a}"](around:${radiusMeters},${lat},${lon});way["${key}"="${a}"](around:${radiusMeters},${lat},${lon});relation["${key}"="${a}"](around:${radiusMeters},${lat},${lon});`;
+        return `node["${key}"="${a}"](around:${maxRadiusMeters},${lat},${lon});way["${key}"="${a}"](around:${maxRadiusMeters},${lat},${lon});relation["${key}"="${a}"](around:${maxRadiusMeters},${lat},${lon});`;
       })
       .join('');
     const competitorQuery = `[out:json][timeout:25];(${competitorClauses});out center;`;
@@ -301,30 +302,77 @@ export async function GET(request) {
         category.tags.map((tag) => {
           const key = getTagType(tag);
           if (key === 'highway') {
-            return `node["${key}"="${tag}"](around:${radiusMeters},${lat},${lon});`;
+            return `node["${key}"="${tag}"](around:${maxRadiusMeters},${lat},${lon});`;
           }
-          return `node["${key}"="${tag}"](around:${radiusMeters},${lat},${lon});way["${key}"="${tag}"](around:${radiusMeters},${lat},${lon});`;
+          return `node["${key}"="${tag}"](around:${maxRadiusMeters},${lat},${lon});way["${key}"="${tag}"](around:${maxRadiusMeters},${lat},${lon});`;
         })
       )
       .join('\n      ');
     const poiQuery = `[out:json][timeout:25];(\n      ${poiClauses}\n    );out center;`;
 
-    // Step 4: Run Overpass + PopGrowth in parallel (Census already done)
-    const popGrowthPromise = fips ? getPopulationGrowth(fips.state, fips.county) : Promise.resolve(null);
+    // Step 3: Run Census + Walk Score + Overpass all in parallel. Census
+    // and Walk Score don't depend on the radius, so they can fire alongside
+    // the wide Overpass query without blocking.
+    const walkScorePromise = getWalkScore(displayAddress, lat, lon);
+    const fipsPromise = getFipsCodes(lat, lon);
 
-    const competitorData = await queryOverpassWithRetry(competitorQuery, `comp:${industry}:${cLat},${cLon}:${radiusMeters}`);
+    const competitorData = await queryOverpassWithRetry(competitorQuery, `comp:${industry}:${cLat},${cLon}:${maxRadiusMeters}`);
     await sleep(500);
-    const poiData = await queryOverpassWithRetry(poiQuery, `poi:${industry}:${cLat},${cLon}:${radiusMeters}`);
+    const poiData = await queryOverpassWithRetry(poiQuery, `poi:${industry}:${cLat},${cLon}:${maxRadiusMeters}`);
 
-    const [popGrowth, walkScoreData] = await Promise.all([popGrowthPromise, walkScorePromise]);
+    const [walkScoreData, fips] = await Promise.all([walkScorePromise, fipsPromise]);
 
-    // Parse results
-    const rawCompetitors = parseCompetitors(competitorData, config);
-    const anchors = parseAnchors(poiData, config);
+    // Step 4: Demographics + population growth (depends on FIPS)
+    const defaults = {
+      population: 3000, medianIncome: 55000, medianAge: null,
+      collegePercent: null, employmentRate: null, medianHomeValue: null,
+      vacancyRate: null, drivePercent: null,
+    };
+    let demographics = { ...defaults };
+    let popGrowth = null;
+    if (fips) {
+      try {
+        const [demo, growth] = await Promise.all([
+          getDemographics(fips.state, fips.county, fips.tract),
+          getPopulationGrowth(fips.state, fips.county),
+        ]);
+        for (const key of Object.keys(defaults)) {
+          if (demo[key] !== null && demo[key] !== undefined) demographics[key] = demo[key];
+        }
+        popGrowth = growth;
+      } catch (e) {
+        console.warn('Census demographics lookup failed:', e.message);
+      }
+    }
 
-    // Step 5: Enrich competitors with Google Places data (ratings, reviews)
-    const { competitors, avgRating: avgCompetitorRating, totalReviews: totalCompetitorReviews } =
-      await enrichCompetitors(rawCompetitors, lat, lon, config.googlePlacesType, config.fallbackName, radiusMeters);
+    // Parse competitors at the maximum radius
+    const rawCompetitorsAll = parseCompetitors(competitorData, config);
+
+    // Step 5: Enrich at the maximum radius (we'll filter after picking the
+    // analysis radius). This finds all Google-only results too.
+    const { competitors: enrichedAll } =
+      await enrichCompetitors(rawCompetitorsAll, lat, lon, config.googlePlacesType, config.fallbackName, maxRadiusMeters);
+
+    // Step 5.5: Pick the actual analysis radius based on competitor density,
+    // then filter competitors and POIs down to that radius.
+    const searchRadius = pickRadiusFromCompetitors(enrichedAll, lat, lon);
+    const { radiusMiles, radiusMeters } = searchRadius;
+
+    const competitors = enrichedAll.filter((c) => {
+      const dist = haversineMiles(lat, lon, c.lat, c.lon);
+      return dist <= radiusMiles;
+    });
+
+    // Recompute aggregate metrics for the filtered set
+    const ratedFiltered = competitors.filter((c) => c.rating != null);
+    const avgCompetitorRating = ratedFiltered.length > 0
+      ? Math.round((ratedFiltered.reduce((s, c) => s + c.rating, 0) / ratedFiltered.length) * 10) / 10
+      : null;
+    const totalCompetitorReviews = ratedFiltered.reduce((s, c) => s + (c.reviewCount || 0), 0);
+
+    // Parse POI anchors filtered to the chosen radius (so counts reflect
+    // what a customer would actually consider "nearby" for this area).
+    const anchors = parseAnchors(poiData, config, lat, lon, radiusMiles);
 
     // Step 6: Calculate score
     const competitorCount = competitors.length;
