@@ -1,6 +1,11 @@
-'use client';
-
 import ArticleLayout from '../ArticleLayout';
+
+export const metadata = {
+  title: "Understanding Demographic Data for Business Expansion Decisions | ExpansionLens",
+  description: "How to use Census demographic data for expansion decisions. 7 key metrics explained: population density, income, age, education, and growth trends.",
+  alternates: { canonical: "https://expansionlens.com/blog/demographic-data-business-expansion" },
+  keywords: ["demographic data", "business expansion", "census data", "population analysis"],
+};
 
 export default function Article() {
   return (

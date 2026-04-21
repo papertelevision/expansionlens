@@ -1,6 +1,11 @@
-'use client';
-
 import ArticleLayout from '../ArticleLayout';
+
+export const metadata = {
+  title: "Multi-Location Expansion Strategy: When to Open Your Next Store | ExpansionLens",
+  description: "A framework for multi-location expansion: 5 operational readiness questions and 4 market factors to evaluate before opening your next location.",
+  alternates: { canonical: "https://expansionlens.com/blog/multi-location-expansion-strategy" },
+  keywords: ["multi-location expansion", "when to open next store", "expansion strategy", "location selection"],
+};
 
 export default function Article() {
   return (

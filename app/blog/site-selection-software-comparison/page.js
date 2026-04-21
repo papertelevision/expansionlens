@@ -1,6 +1,11 @@
-'use client';
-
 import ArticleLayout from '../ArticleLayout';
+
+export const metadata = {
+  title: "Site Selection Software Compared: Buxton vs Placer.ai vs ExpansionLens",
+  description: "Compare Buxton ($25K+/yr), Placer.ai ($10K+/yr), and ExpansionLens ($149/report) for dental and retail site selection. Speed, cost, and data compared.",
+  alternates: { canonical: "https://expansionlens.com/blog/site-selection-software-comparison" },
+  keywords: ["site selection software", "Buxton alternative", "Placer.ai alternative", "location intelligence tools"],
+};
 
 export default function Article() {
   return (

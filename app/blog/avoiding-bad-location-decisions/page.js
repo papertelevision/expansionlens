@@ -1,6 +1,11 @@
-'use client';
-
 import ArticleLayout from '../ArticleLayout';
+
+export const metadata = {
+  title: "5 Costly Location Mistakes Directors of Operations Make | ExpansionLens",
+  description: "5 costly location mistakes operations directors make: trusting brokers blindly, anchoring on cheap rent, skipping competitive analysis, and more.",
+  alternates: { canonical: "https://expansionlens.com/blog/avoiding-bad-location-decisions" },
+  keywords: ["location mistakes", "site selection errors", "expansion failures", "operations director"],
+};
 
 export default function Article() {
   return (

@@ -1,6 +1,11 @@
-'use client';
-
 import ArticleLayout from '../ArticleLayout';
+
+export const metadata = {
+  title: "7 Metrics That Predict Dental Franchise Expansion Success | ExpansionLens",
+  description: "7 key metrics that predict dental franchise success: dentist-to-resident ratio, household income, population growth, competition quality, and more.",
+  alternates: { canonical: "https://expansionlens.com/blog/dental-franchise-expansion-metrics" },
+  keywords: ["dental franchise expansion", "site selection metrics", "franchise growth", "dental DSO metrics"],
+};
 
 export default function Article() {
   return (

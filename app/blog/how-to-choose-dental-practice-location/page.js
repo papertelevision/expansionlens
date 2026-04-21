@@ -1,6 +1,11 @@
-'use client';
-
 import ArticleLayout from '../ArticleLayout';
+
+export const metadata = {
+  title: 'How to Choose a Location for a New Dental Practice | ExpansionLens',
+  description: 'Learn the 4 data-driven factors for choosing a dental practice location: demographic fit, competition density, visibility, and economic trajectory.',
+  alternates: { canonical: 'https://expansionlens.com/blog/how-to-choose-dental-practice-location' },
+  keywords: ['dental practice location', 'site selection', 'dental office location', 'where to open dental practice'],
+};
 
 export default function Article() {
   return (

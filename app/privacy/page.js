@@ -1,4 +1,8 @@
-'use client';
+export const metadata = {
+  title: "Privacy Policy | ExpansionLens",
+  description: "Privacy Policy for ExpansionLens — how we collect, use, and protect your data.",
+  alternates: { canonical: "https://expansionlens.com/privacy" },
+};
 
 export default function Privacy() {
   return (

@@ -1,4 +1,8 @@
-'use client';
+export const metadata = {
+  title: "Terms of Service | ExpansionLens",
+  description: "Terms of Service for ExpansionLens location intelligence platform.",
+  alternates: { canonical: "https://expansionlens.com/terms" },
+};
 
 export default function Terms() {
   return (
