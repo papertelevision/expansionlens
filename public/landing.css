@@ -241,8 +241,8 @@ ul { list-style: none; }
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   display: flex;
   align-items: center;
-  position: relative;
-  overflow: hidden;
+
+
   padding-top: 0;
   /* Force a stacking context so the .hero::after gradient overlay
      reliably renders above the transformed .hero-globe iframe. Without
@@ -294,7 +294,7 @@ ul { list-style: none; }
 }
 
 .hero-content {
-  position: relative;
+
   z-index: 1;
   max-width: 720px;
   padding-top: 120px;
@@ -352,7 +352,7 @@ ul { list-style: none; }
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.65rem;
-  position: relative;
+
   z-index: 1;
 }
 
@@ -518,7 +518,7 @@ ul { list-style: none; }
   max-width: 400px;
   width: 100%;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-  position: relative;
+
   text-align: center;
 }
 
@@ -658,12 +658,12 @@ ul { list-style: none; }
 .testimonial-carousel {
   max-width: 700px;
   margin: 0 auto;
-  position: relative;
+
 }
 
 .testimonial-track {
-  overflow: hidden;
-  position: relative;
+
+
 }
 
 .testimonial-card {
@@ -861,12 +861,12 @@ ul { list-style: none; }
   gap: 2.5rem;
   max-width: 900px;
   margin: 0 auto;
-  position: relative;
+
 }
 
 .hiw-step {
   text-align: center;
-  position: relative;
+
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg);
@@ -906,7 +906,7 @@ ul { list-style: none; }
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.25rem;
-  position: relative;
+
   z-index: 2;
 }
 
@@ -951,7 +951,7 @@ ul { list-style: none; }
   border: 1px solid var(--border);
   border-radius: 12px;
   transition: all 0.3s ease;
-  position: relative;
+
 }
 
 .vertical-card:hover {
@@ -1037,7 +1037,7 @@ ul { list-style: none; }
   background: var(--card);
   border-radius: 12px;
   box-shadow: var(--shadow-xl);
-  overflow: hidden;
+
   position: sticky;
   top: 6rem;
 }
@@ -1083,7 +1083,7 @@ ul { list-style: none; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  position: relative;
+
 }
 
 .preview-score-circle::before {
@@ -1096,7 +1096,7 @@ ul { list-style: none; }
 }
 
 .preview-score-number {
-  position: relative;
+
   z-index: 1;
   font-family: var(--font-serif);
   font-size: 1.5rem;
@@ -1149,7 +1149,7 @@ ul { list-style: none; }
   height: 6px;
   background: var(--border);
   border-radius: 3px;
-  overflow: hidden;
+
 }
 
 .preview-bar-fill {
@@ -1164,7 +1164,7 @@ ul { list-style: none; }
   gap: 2px;
   margin-bottom: 1.5rem;
   border-radius: 6px;
-  overflow: hidden;
+
 }
 
 .preview-grid-cell {
@@ -1336,7 +1336,7 @@ ul { list-style: none; }
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
   transition: all 0.3s ease;
-  position: relative;
+
 }
 
 .pricing-card:hover {
@@ -1681,10 +1681,13 @@ ul { list-style: none; }
    12. Final CTA
    ============================================ */
 .final-cta {
+
+
   padding: 6rem 0;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   text-align: center;
 }
+
 
 .final-cta .section-title {
   color: white;

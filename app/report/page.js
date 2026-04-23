@@ -271,6 +271,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [viewingSaved, setViewingSaved] = useState(false);
   const [isSample, setIsSample] = useState(false);
+  const [isPromo, setIsPromo] = useState(false);
   const [postPaymentLoading, setPostPaymentLoading] = useState(false);
   const [redirectingToCheckout, setRedirectingToCheckout] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -396,6 +397,25 @@ export default function Home() {
     const urlIndustry = params.get('industry');
     const proceedToCheckout = params.get('proceed_to_checkout');
     const reportId = params.get('report_id');
+    const promoSlug = params.get('promo');
+
+    // Load a public promo report (no auth required)
+    if (promoSlug) {
+      fetch(`/api/promo-reports/${promoSlug}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.data) {
+            setResult(data.data);
+            setReportAccess('full');
+            setViewingSaved(true);
+            setIsPromo(true);
+            if (data.industry) setIndustry(data.industry);
+          }
+          window.history.replaceState({}, '', window.location.pathname);
+        })
+        .catch(() => {});
+      return;
+    }
 
     // Load a saved report from the dashboard
     if (reportId) {
@@ -490,7 +510,7 @@ export default function Home() {
               });
           }
         });
-    } else if (!urlAddress && !sessionId && !reportId && !result) {
+    } else if (!urlAddress && !sessionId && !reportId && !promoSlug && !result) {
       // No valid parameters — redirect to sample report
       window.location.href = '/sample';
       return;
@@ -658,7 +678,7 @@ export default function Home() {
         <header className="header header-saved">
           <div className="header-saved-inner">
             <a href="/" className="header-saved-brand"><img src="/images/logomark.png" alt="" className="header-saved-logomark" />ExpansionLens</a>
-            {isSample ? (
+            {isSample || isPromo ? (
               <a href="/" className="header-saved-back" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.location = '/'; }}>&#8592; Analyze a Location</a>
             ) : (
               <a href="/dashboard" className="header-saved-back" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.location = '/dashboard'; }}>&#8592; Back to Dashboard</a>
@@ -776,7 +796,7 @@ export default function Home() {
             <div className="report-branding-left">
               <div className="report-branding-logo">ExpansionLens</div>
               <div className="report-branding-subtitle">
-                <span className="report-branding-title">Location Analysis Report</span>
+                <span className="report-branding-title">Location Analysis Report: {config.label}</span>
                 <span className="report-branding-meta">{reportDate} &middot; {reportId}</span>
               </div>
             </div>

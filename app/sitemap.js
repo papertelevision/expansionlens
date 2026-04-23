@@ -1,6 +1,44 @@
+import prisma from '../lib/db.js';
+
 const BASE_URL = 'https://expansionlens.com';
 
-export default function sitemap() {
+export default async function sitemap() {
+  // Fetch published spotlight articles from the database
+  let spotlights = [];
+  try {
+    spotlights = await prisma.spotlightArticle.findMany({
+      where: { status: 'published' },
+      select: { slug: true, publishedAt: true },
+      orderBy: { publishedAt: 'desc' },
+    });
+  } catch (e) {
+    // DB unavailable during build — continue with static entries only
+  }
+
+  const spotlightEntries = spotlights.map((s) => ({
+    url: `${BASE_URL}/blog/${s.slug}`,
+    lastModified: s.publishedAt || new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  }));
+
+  // Fetch published blog posts from the database
+  let blogPosts = [];
+  try {
+    blogPosts = await prisma.blogPost.findMany({
+      where: { status: 'published' },
+      select: { slug: true, publishedAt: true },
+      orderBy: { publishedAt: 'desc' },
+    });
+  } catch (e) {}
+
+  const blogPostEntries = blogPosts.map((p) => ({
+    url: `${BASE_URL}/blog/${p.slug}`,
+    lastModified: p.publishedAt || new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  }));
+
   return [
     // Landing pages — lastModified updates on each deploy
     {
@@ -67,6 +105,12 @@ export default function sitemap() {
       changeFrequency: 'monthly',
       priority: 0.7,
     },
+
+    // Published spotlight articles (from database)
+    ...spotlightEntries,
+
+    // Published blog posts (from database)
+    ...blogPostEntries,
 
     // Legal
     {

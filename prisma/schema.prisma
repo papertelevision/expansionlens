@@ -64,3 +64,48 @@ model Report {
   stripeSessionId String?
   createdAt       DateTime @default(now())
 }
+
+model PromoReport {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  address    String
+  industry   String   @default("dental")
+  lat        Float
+  lon        Float
+  score      Int
+  reportData String   // Full JSON from analyze API
+  isPublic   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  category    String
+  title       String
+  excerpt     String
+  content     String    // Full article HTML
+  faqEntries  String    @default("[]") // JSON array of {question, answer}
+  readTime    String    @default("6 min read")
+  status      String    @default("draft") // draft | published
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model SpotlightArticle {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  city            String
+  state           String
+  score           Int
+  data            String    // JSON string of analyze API response (stats, upside, etc.)
+  introText       String    // Editable intro paragraph
+  cityContext     String    @default("") // Editable "Why Dentists Are Looking at [City]" section
+  competitiveText String    @default("") // Editable "Competitive Landscape" section
+  summaryText     String    // Editable "Is [City] a Good Place..." closing section
+  status          String    @default("draft") // draft | published
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}

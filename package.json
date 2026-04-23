@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@prisma/client": "^5.22.0",
     "@sentry/nextjs": "^10.47.0",
     "@turf/centroid": "^7.0.0",

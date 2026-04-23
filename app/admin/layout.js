@@ -10,6 +10,9 @@ const navItems = [
   { href: '/admin/reports', label: 'Reports', icon: '📄' },
   { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
   { href: '/admin/analyze', label: 'Analyze', icon: '🔍' },
+  { href: '/admin/spotlights', label: 'Spotlights', icon: '📍' },
+  { href: '/admin/blog-posts', label: 'Blog Posts', icon: '✏️' },
+  { href: '/admin/promo-reports', label: 'Promo Reports', icon: '🎁' },
 ];
 
 export default function AdminLayout({ children }) {

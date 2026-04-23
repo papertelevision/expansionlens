@@ -750,6 +750,7 @@ body {
 
 .score-header .address {
   font-size: 0.9rem;
+  font-weight: 700;
   color: var(--text-muted);
   margin-bottom: 1rem;
 }
@@ -830,6 +831,7 @@ body {
 
 .report-branding-logo {
   font-size: 1.25rem;
+  font-family: 'DM Serif Display', Georgia, serif;
   font-weight: 800;
   letter-spacing: -0.02em;
   white-space: nowrap;
