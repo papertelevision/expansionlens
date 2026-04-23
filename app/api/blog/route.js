@@ -62,7 +62,7 @@ export async function GET() {
       orderBy: { publishedAt: 'desc' },
     });
   } catch (e) {
-    // DB unavailable — return static articles only
+    console.error('Spotlight query failed:', e.message);
   }
 
   const spotlightArticles = spotlights.map((s) => ({
@@ -83,7 +83,7 @@ export async function GET() {
       orderBy: { publishedAt: 'desc' },
     });
   } catch (e) {
-    // DB unavailable
+    console.error('BlogPost query failed:', e.message);
   }
 
   const blogPostArticles = blogPosts.map((p) => ({
