@@ -1,5 +1,7 @@
 import prisma from '../../../lib/db.js';
 
+export const dynamic = 'force-dynamic';
+
 // Static hand-written articles
 const staticArticles = [
   {
