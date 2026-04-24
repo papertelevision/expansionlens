@@ -74,6 +74,7 @@ export async function GET() {
     excerpt: `${s.city} scored ${s.score}/100 as a dental expansion target. See the competitive landscape, market indicators, and opportunities.`,
     readTime: '4 min read',
     date: s.publishedAt ? new Date(s.publishedAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'April 2026',
+    sortDate: s.publishedAt ? new Date(s.publishedAt) : new Date(0),
   }));
 
   // Fetch published blog posts from DB
@@ -95,13 +96,23 @@ export async function GET() {
     excerpt: p.excerpt,
     readTime: p.readTime,
     date: p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'April 2026',
+    sortDate: p.publishedAt ? new Date(p.publishedAt) : new Date(0),
   }));
 
-  // Static articles first, then AI blog posts, then spotlights
-  const allArticles = [...staticArticles, ...blogPostArticles, ...spotlightArticles];
+  // Merge all articles and sort by date (most recent first).
+  // Static articles get a sortDate from their display date string,
+  // DB articles get theirs from publishedAt.
+  const allArticles = [
+    ...staticArticles.map((a) => ({ ...a, sortDate: new Date(a.date + ' 1') })),
+    ...blogPostArticles.map((a) => ({ ...a, sortDate: a.sortDate })),
+    ...spotlightArticles.map((a) => ({ ...a, sortDate: a.sortDate })),
+  ].sort((a, b) => (b.sortDate || 0) - (a.sortDate || 0));
 
-  // Collect unique categories
-  const categories = [...new Set(allArticles.map((a) => a.category))];
+  // Remove sortDate before sending to client
+  allArticles.forEach((a) => delete a.sortDate);
+
+  // Collect unique categories, sorted alphabetically
+  const categories = [...new Set(allArticles.map((a) => a.category))].sort();
 
   return Response.json({ articles: allArticles, categories });
 }

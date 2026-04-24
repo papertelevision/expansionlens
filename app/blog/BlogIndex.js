@@ -50,34 +50,38 @@ export default function BlogIndex() {
           <p className="blog-subtitle">Insights, frameworks, and data-driven guides for business expansion, site selection, and multi-location growth.</p>
         </div>
 
-        {/* Category filter pills */}
+        {/* Category filter dropdown */}
         {categories.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '2rem', justifyContent: 'center' }}>
-            <button
-              onClick={() => handleCategoryChange('All')}
-              style={{
-                padding: '0.4rem 1rem', borderRadius: '999px', border: 'none', cursor: 'pointer',
-                fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.15s',
-                background: activeCategory === 'All' ? '#0f172a' : '#e2e8f0',
-                color: activeCategory === 'All' ? 'white' : '#475569',
-              }}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => handleCategoryChange(cat)}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem', marginTop: '-1rem' }}>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <select
+                value={activeCategory}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 style={{
-                  padding: '0.4rem 1rem', borderRadius: '999px', border: 'none', cursor: 'pointer',
-                  fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.15s',
-                  background: activeCategory === cat ? '#0f172a' : '#e2e8f0',
-                  color: activeCategory === cat ? 'white' : '#475569',
+                  padding: '0.6rem 2.5rem 0.6rem 1.25rem',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#1a2b4a',
+                  background: 'white',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  fontFamily: 'inherit',
+                  letterSpacing: '-0.01em',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.9rem center',
                 }}
               >
-                {cat}
-              </button>
-            ))}
+                <option value="All">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 
