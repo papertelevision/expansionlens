@@ -66,16 +66,28 @@ model Report {
 }
 
 model PromoReport {
-  id         String   @id @default(cuid())
-  slug       String   @unique
+  id         String             @id @default(cuid())
+  slug       String             @unique
   address    String
-  industry   String   @default("dental")
+  industry   String             @default("dental")
   lat        Float
   lon        Float
   score      Int
-  reportData String   // Full JSON from analyze API
-  isPublic   Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  reportData String             // Full JSON from analyze API
+  isPublic   Boolean            @default(false)
+  createdAt  DateTime           @default(now())
+  views      PromoReportView[]
+}
+
+model PromoReportView {
+  id         String      @id @default(cuid())
+  reportId   String
+  report     PromoReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  referrer   String?
+  userAgent  String?
+  deviceType String?
+  ip         String?
+  viewedAt   DateTime    @default(now())
 }
 
 model BlogPost {

@@ -12,6 +12,7 @@ export default function PromoReportsAdmin() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(null);
+  const [viewingReport, setViewingReport] = useState(null);
 
   const fetchReports = () => {
     fetch('/api/admin/promo-reports')
@@ -66,7 +67,78 @@ export default function PromoReportsAdmin() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const handleViewDetails = async (id) => {
+    const res = await fetch(`/api/admin/promo-reports/${id}`);
+    const data = await res.json();
+    if (!data.error) setViewingReport(data);
+  };
+
   if (loading) return <div className="admin-page-loading">Loading promo reports...</div>;
+
+  if (viewingReport) {
+    return (
+      <div className="admin-page">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <button onClick={() => setViewingReport(null)} className="admin-login-btn" style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+            &larr; Back to List
+          </button>
+        </div>
+
+        <h2 style={{ margin: '0 0 0.25rem' }}>{viewingReport.address}</h2>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <span className={`admin-score ${viewingReport.score >= 75 ? 'excellent' : viewingReport.score >= 50 ? 'moderate' : 'poor'}`}>{viewingReport.score}</span>
+          <span style={{ background: viewingReport.isPublic ? '#10b981' : '#64748b', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
+            {viewingReport.isPublic ? 'Public' : 'Private'}
+          </span>
+          <a href={`/report?promo=${viewingReport.slug}`} target="_blank" rel="noopener" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            /report?promo={viewingReport.slug}
+          </a>
+        </div>
+
+        <div style={{ background: 'var(--card)', borderRadius: '8px', padding: '1.5rem', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>View Analytics</h3>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--primary)' }}>{viewingReport.viewCount} <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-muted)' }}>total views</span></div>
+          </div>
+
+          {viewingReport.views && viewingReport.views.length > 0 ? (
+            <div className="admin-table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Referrer</th>
+                    <th>Device</th>
+                    <th>IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewingReport.views.map((v) => (
+                    <tr key={v.id}>
+                      <td style={{ fontSize: '0.85rem' }}>{new Date(v.viewedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+                      <td>
+                        <span style={{
+                          background: v.referrer === 'LinkedIn' ? '#0a66c2' : v.referrer === 'Direct' ? '#64748b' : '#e2e8f0',
+                          color: v.referrer === 'LinkedIn' || v.referrer === 'Direct' ? 'white' : '#334155',
+                          padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
+                        }}>
+                          {v.referrer || 'Direct'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.85rem' }}>{v.deviceType || 'Unknown'}</td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{v.ip || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No views yet</div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-page">
@@ -112,6 +184,7 @@ export default function PromoReportsAdmin() {
               <tr>
                 <th>Address</th>
                 <th>Score</th>
+                <th>Views</th>
                 <th>Visibility</th>
                 <th>Link</th>
                 <th>Created</th>
@@ -128,6 +201,14 @@ export default function PromoReportsAdmin() {
                   </td>
                   <td>
                     <span className={`admin-score ${r.score >= 75 ? 'excellent' : r.score >= 50 ? 'moderate' : 'poor'}`}>{r.score}</span>
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => handleViewDetails(r.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', color: r.viewCount > 0 ? '#0a66c2' : 'var(--text-muted)' }}
+                    >
+                      {r.viewCount || 0}
+                    </button>
                   </td>
                   <td>
                     <button
@@ -163,14 +244,12 @@ export default function PromoReportsAdmin() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <a
-                        href={`/report?promo=${r.slug}`}
-                        target="_blank"
-                        rel="noopener"
-                        style={{ background: 'none', border: '1px solid var(--border)', padding: '0.3rem 0.75rem', borderRadius: '4px', fontSize: '0.8rem', textDecoration: 'none', color: 'inherit' }}
+                      <button
+                        onClick={() => handleViewDetails(r.id)}
+                        style={{ background: 'none', border: '1px solid var(--border)', padding: '0.3rem 0.75rem', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer', color: 'inherit' }}
                       >
                         View
-                      </a>
+                      </button>
                       <button
                         onClick={() => handleDelete(r.id)}
                         style={{ background: 'none', border: '1px solid #ef4444', padding: '0.3rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', color: '#ef4444' }}

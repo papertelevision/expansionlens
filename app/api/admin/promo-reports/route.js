@@ -17,10 +17,18 @@ export async function GET() {
     select: {
       id: true, slug: true, address: true, industry: true,
       score: true, isPublic: true, createdAt: true,
+      _count: { select: { views: true } },
     },
   });
 
-  return Response.json(reports);
+  // Flatten _count into viewCount for the frontend
+  const result = reports.map((r) => ({
+    ...r,
+    viewCount: r._count.views,
+    _count: undefined,
+  }));
+
+  return Response.json(result);
 }
 
 // POST /api/admin/promo-reports — generate a new promo report
